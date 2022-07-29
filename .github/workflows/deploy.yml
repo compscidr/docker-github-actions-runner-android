@@ -16,7 +16,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
       - name: build image
-        run: docker build -f Dockerfile -t ${{ secrets.DOCKERHUB_USERNAME }}/github-runner-android:${{ github.sha }}
+        run: docker build -f Dockerfile -t ${{ secrets.DOCKERHUB_USERNAME }}/github-runner-android:${{ github.sha }} .
       - name: tag and push
         run: |
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/github-runner-android:${{ github.sha }}
