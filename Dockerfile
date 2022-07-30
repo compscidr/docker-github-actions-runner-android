@@ -70,6 +70,7 @@ RUN echo "y" | ${ANDROID_ROOT}/sdk/cmdline-tools/latest/bin/sdkmanager --sdk_roo
   "add-ons;addon-google_apis-google-22" \
   "add-ons;addon-google_apis-google-21" 1>/dev/null
 
+WORKDIR /actions-runner
 LABEL maintainer="ernstjason1@gmail.com"
 
 # NB: there is no CMD so it will work the same as the base image. See the
