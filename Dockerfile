@@ -26,11 +26,6 @@ FROM java as android
 ARG SDK_TOOLS
 ARG ANDROID_ROOT
 
-# Set env variable for SDK Root (https://developer.android.com/studio/command-line/variables)
-# ANDROID_HOME is deprecated, but older versions of Gradle rely on it
-RUN echo "ANDROID_SDK_ROOT=$ANDROID_ROOT/sdk" | tee -a /etc/environment && \
-  echo "ANDROID_HOME=$ANDROID_ROOT/sdk" | tee -a /etc/environment
-
 WORKDIR /tmp
 
 # download android tools and use it to install the SDK
@@ -72,6 +67,11 @@ RUN echo "y" | ${ANDROID_ROOT}/sdk/cmdline-tools/latest/bin/sdkmanager --sdk_roo
 
 WORKDIR /actions-runner
 ENV PATH="${PATH}:/usr/local/lib/android/sdk/platform-tools/"
+
+# Set env variable for SDK Root (https://developer.android.com/studio/command-line/variables)
+# ANDROID_HOME is deprecated, but older versions of Gradle rely on it
+ENV ANDROID_SDK_ROOT=$ANDROID_ROOT/sdk
+ENV ANDROID_HOME=$ANDROID_ROOT/sdk
 LABEL maintainer="ernstjason1@gmail.com"
 
 # NB: there is no CMD so it will work the same as the base image. See the
