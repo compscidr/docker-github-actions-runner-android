@@ -13,6 +13,9 @@ work well, will need to look into that more.
 To run the container, check out the environment variables from the base image:
 https://github.com/myoung34/docker-github-actions-runner#environment-variables
 
+There is also an example docker-compose file which uses .env file to set the
+variables. 
+
 ## Building:
 `docker build -f Dockerfile .`
 

@@ -1,0 +1,12 @@
+version: "3.0"
+services:
+  gha:
+    build:
+      context: .
+    # if you don't want to build and instead just use the pre-built image
+    # comment out the build block above and uncomment below
+    # image: compscidr/github-runner-android
+    container_name: gha
+    env_file:
+      - .env
+    restart: always
