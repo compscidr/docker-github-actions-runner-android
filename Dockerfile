@@ -1,4 +1,4 @@
-ARG VERSION=2.299.1-ubuntu-focal
+ARG VERSION=2.300.2-ubuntu-focal
 ARG JAVA_VERSION=11
 ARG SDK_TOOLS=8512546_latest
 ARG ANDROID_ROOT=/usr/local/lib/android
