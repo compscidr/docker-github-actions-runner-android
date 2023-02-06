@@ -19,6 +19,10 @@ RUN mkdir -p /etc/apt/keyrings && \
 # install the temurin jdk
 RUN apt-get -qq update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends temurin-$JAVA_VERSION-jdk
 
+# install ip tools
+RUN apt-get -qq update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends iproute2
+
+
 ################################################################################
 # - install android sdk
 ################################################################################
