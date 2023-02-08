@@ -22,6 +22,8 @@ RUN apt-get -qq update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no
 # install ip tools
 RUN apt-get -qq update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends iproute2
 
+# install cmake build-essential
+RUN apt-get -qq update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends cmake build-essential
 
 ################################################################################
 # - install android sdk
