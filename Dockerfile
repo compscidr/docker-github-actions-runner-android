@@ -1,4 +1,4 @@
-ARG VERSION=2.294.0-ubuntu-focal
+ARG VERSION=2.304.0-ubuntu-focal
 ARG JAVA_VERSION=17
 ARG SDK_TOOLS=8512546_latest
 ARG ANDROID_ROOT=/usr/local/lib/android
@@ -18,6 +18,13 @@ RUN mkdir -p /etc/apt/keyrings && \
 
 # install the temurin jdk
 RUN apt-get -qq update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends temurin-$JAVA_VERSION-jdk
+ENV JAVA_HOME=/usr/lib/jvm/temurin-$JAVA_VERSION-jdk-amd64
+
+# install ip tools
+RUN apt-get -qq update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends iproute2
+
+# install cmake build-essential
+RUN apt-get -qq update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends cmake build-essential
 
 ################################################################################
 # - install android sdk
