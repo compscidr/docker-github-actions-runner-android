@@ -39,31 +39,22 @@ RUN ${ANDROID_ROOT}/sdk/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/nul
 # We can reduce the image size by supporting fewer versions here if we want.
 RUN echo "y" | ${ANDROID_ROOT}/sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_ROOT/sdk/ \
   "platform-tools" \
-  "platforms;android-33" \
+  "platforms;android-35" \
   "platforms;android-32" \
   "platforms;android-31" \
   "platforms;android-30" \
   "platforms;android-29" \
   "platforms;android-28" \
   "platforms;android-21" \
+  "build-tools;34.0.0" \
   "build-tools;33.0.0" \
   "build-tools;32.0.0" \
   "build-tools;31.0.0" \
-  "build-tools;30.0.3" \
-  "build-tools;30.0.2" \
-  "build-tools;30.0.1" \
-  "build-tools;30.0.0" \
-  "build-tools;29.0.3" \
-  "build-tools;29.0.2" \
-  "build-tools;29.0.0" \
-  "build-tools;28.0.3" \
+  # anything older than 31.0.0 will result in a platform-tools-2 folder and causes android to give some warnings
   "extras;android;m2repository" \
   "extras;google;m2repository" \
   "extras;google;google_play_services" \
-  "add-ons;addon-google_apis-google-24" \
-  "add-ons;addon-google_apis-google-23" \
-  "add-ons;addon-google_apis-google-22" \
-  "add-ons;addon-google_apis-google-21" 1>/dev/null
+  "add-ons;addon-google_apis-google-24"
 
 WORKDIR /actions-runner
 ENV PATH="${PATH}:/usr/local/lib/android/sdk/platform-tools/"
