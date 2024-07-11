@@ -1,7 +1,10 @@
-ARG VERSION=2.301.1-ubuntu-focal
-ARG JAVA_VERSION=11
+ARG VERSION=2.317.0-ubuntu-focal
+ARG JAVA_VERSION=17
 ARG SDK_TOOLS=8512546_latest
 ARG ANDROID_ROOT=/usr/local/lib/android
+ARG USERNAME=ubuntu
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
 
 ################################################################################
 # base image from https://github.com/myoung34/docker-github-actions-runner
@@ -18,6 +21,13 @@ RUN mkdir -p /etc/apt/keyrings && \
 
 # install the temurin jdk
 RUN apt-get -qq update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends temurin-$JAVA_VERSION-jdk
+ENV JAVA_HOME=/usr/lib/jvm/temurin-$JAVA_VERSION-jdk-amd64
+
+# install ip tools
+RUN apt-get -qq update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends iproute2
+
+# install cmake build-essential
+RUN apt-get -qq update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends cmake build-essential
 
 ################################################################################
 # - install android sdk
@@ -25,6 +35,9 @@ RUN apt-get -qq update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no
 FROM java AS android
 ARG SDK_TOOLS
 ARG ANDROID_ROOT
+ARG USERNAME
+ARG USER_UID
+ARG USER_GID
 
 WORKDIR /tmp
 
@@ -51,6 +64,10 @@ RUN echo "y" | ${ANDROID_ROOT}/sdk/cmdline-tools/latest/bin/sdkmanager --sdk_roo
   "build-tools;32.0.0" \
   "build-tools;31.0.0" \
   # anything older than 31.0.0 will result in a platform-tools-2 folder and causes android to give some warnings
+  "ndk-bundle" \
+  "ndk;25.2.9519653" \
+  "ndk;25.1.8937393" \
+  "cmake;3.22.1" \
   "extras;android;m2repository" \
   "extras;google;m2repository" \
   "extras;google;google_play_services" \
@@ -65,6 +82,17 @@ ENV ANDROID_SDK_ROOT=$ANDROID_ROOT/sdk
 ENV ANDROID_HOME=$ANDROID_ROOT/sdk
 LABEL maintainer="ernstjason1@gmail.com"
 
+# Create the user
+RUN groupadd --gid $USER_GID $USERNAME \
+    && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
+    #
+    # [Optional] Add sudo support. Omit if you don't need to install software after connecting.
+    && apt-get update \
+    && apt-get install -y sudo \
+    && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
+    && chmod 0440 /etc/sudoers.d/$USERNAME
+
 # NB: there is no CMD so it will work the same as the base image. See the
 # https://github.com/myoung34/docker-github-actions-runner#environment-variables
 # for how to use the image
+
