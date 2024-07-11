@@ -7,7 +7,7 @@ ARG ANDROID_ROOT=/usr/local/lib/android
 # base image from https://github.com/myoung34/docker-github-actions-runner
 # - install temurin java into it
 ################################################################################
-FROM myoung34/github-runner:$VERSION as java
+FROM myoung34/github-runner:$VERSION AS java
 ARG JAVA_VERSION
 
 # https://adoptium.net/installation/linux
@@ -22,7 +22,7 @@ RUN apt-get -qq update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no
 ################################################################################
 # - install android sdk
 ################################################################################
-FROM java as android
+FROM java AS android
 ARG SDK_TOOLS
 ARG ANDROID_ROOT
 
