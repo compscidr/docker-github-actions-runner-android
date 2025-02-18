@@ -67,6 +67,7 @@ RUN echo "y" | ${ANDROID_ROOT}/sdk/cmdline-tools/latest/bin/sdkmanager --sdk_roo
   "ndk-bundle" \
   "ndk;25.2.9519653" \
   "ndk;25.1.8937393" \
+  "ndk;28.0.12674087" \
   "cmake;3.22.1" \
   "extras;android;m2repository" \
   "extras;google;m2repository" \
