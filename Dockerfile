@@ -52,6 +52,7 @@ RUN ${ANDROID_ROOT}/sdk/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/nul
 # We can reduce the image size by supporting fewer versions here if we want.
 RUN echo "y" | ${ANDROID_ROOT}/sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_ROOT/sdk/ \
   "platform-tools" \
+  "platforms;android-36" \
   "platforms;android-35" \
   "platforms;android-32" \
   "platforms;android-31" \
