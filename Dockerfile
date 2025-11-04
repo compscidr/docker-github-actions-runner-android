@@ -2,9 +2,6 @@ ARG VERSION=2.329.0-ubuntu-noble
 ARG JAVA_VERSION=21
 ARG SDK_TOOLS=8512546_latest
 ARG ANDROID_ROOT=/usr/local/lib/android
-ARG USERNAME=ubuntu
-ARG USER_UID=1000
-ARG USER_GID=$USER_UID
 
 ################################################################################
 # base image from https://github.com/myoung34/docker-github-actions-runner
@@ -35,9 +32,6 @@ RUN apt-get -qq update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no
 FROM java AS android
 ARG SDK_TOOLS
 ARG ANDROID_ROOT
-ARG USERNAME
-ARG USER_UID
-ARG USER_GID
 
 WORKDIR /tmp
 
@@ -83,16 +77,6 @@ ENV PATH="${PATH}:/usr/local/lib/android/sdk/platform-tools/"
 ENV ANDROID_SDK_ROOT=$ANDROID_ROOT/sdk
 ENV ANDROID_HOME=$ANDROID_ROOT/sdk
 LABEL maintainer="ernstjason1@gmail.com"
-
-# Create the user
-RUN groupadd --gid $USER_GID $USERNAME \
-    && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
-    #
-    # [Optional] Add sudo support. Omit if you don't need to install software after connecting.
-    && apt-get update \
-    && apt-get install -y sudo \
-    && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
-    && chmod 0440 /etc/sudoers.d/$USERNAME
 
 # NB: there is no CMD so it will work the same as the base image. See the
 # https://github.com/myoung34/docker-github-actions-runner#environment-variables
