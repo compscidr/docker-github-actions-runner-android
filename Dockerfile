@@ -1,4 +1,4 @@
-ARG VERSION=2.330.0-ubuntu-noble
+ARG VERSION=2.331.0-ubuntu-noble
 ARG JAVA_VERSION=21
 ARG SDK_TOOLS=8512546_latest
 ARG ANDROID_ROOT=/usr/local/lib/android
