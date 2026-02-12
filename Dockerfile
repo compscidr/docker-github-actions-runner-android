@@ -80,6 +80,11 @@ ENV ANDROID_SDK_ROOT=$ANDROID_ROOT/sdk
 ENV ANDROID_HOME=$ANDROID_ROOT/sdk
 LABEL maintainer="ernstjason1@gmail.com"
 
+# Post-job cleanup hook to prevent unbounded cache growth
+COPY cleanup.sh /usr/local/bin/cleanup.sh
+RUN chmod +x /usr/local/bin/cleanup.sh
+ENV ACTIONS_RUNNER_HOOK_JOB_COMPLETED=/usr/local/bin/cleanup.sh
+
 # NB: there is no CMD so it will work the same as the base image. See the
 # https://github.com/myoung34/docker-github-actions-runner#environment-variables
 # for how to use the image
