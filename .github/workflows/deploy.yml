@@ -5,28 +5,45 @@ on:
       - main
 
 jobs:
-  deploy:
-    name: Build JDK ${{ matrix.java_version }}
+  matrix:
+    name: Generate build matrix
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        java_version: ["17", "21"]
-        include:
-          - java_version: "21"
-            is_default_jdk: true
-          - java_version: "17"
-            is_default_jdk: false
+    outputs:
+      matrix: ${{ steps.generate.outputs.matrix }}
     steps:
       - uses: actions/checkout@v6
 
-      - name: Extract runner version from Dockerfile
+      - name: Generate matrix from matrix.json
+        id: generate
+        run: |
+          DEFAULT_JDK=$(jq -r '.default_jdk' matrix.json)
+          MATRIX=$(jq -c --arg default "$DEFAULT_JDK" '{
+            "include": [.java_versions[] | {
+              "java_version": .,
+              "is_default_jdk": (. == $default)
+            }]
+          }' matrix.json)
+          echo "matrix=${MATRIX}" >> $GITHUB_OUTPUT
+
+  deploy:
+    name: Build JDK ${{ matrix.java_version }}
+    needs: matrix
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.matrix.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Extract versions from Dockerfile
         id: versions
         run: |
           RUNNER_TAG=$(grep '^ARG VERSION=' Dockerfile | cut -d= -f2)
           RUNNER_VERSION=$(echo "$RUNNER_TAG" | cut -d- -f1)
+          COMPILE_SDK=$(grep '^ARG COMPILE_SDK=' Dockerfile | cut -d= -f2)
           echo "runner_tag=${RUNNER_TAG}" >> $GITHUB_OUTPUT
           echo "runner_version=${RUNNER_VERSION}" >> $GITHUB_OUTPUT
+          echo "compile_sdk=${COMPILE_SDK}" >> $GITHUB_OUTPUT
 
       - name: Login to Docker Hub
         uses: docker/login-action@v4
@@ -53,7 +70,7 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/github-runner-android
           tags: |
             type=raw,value=jdk${{ matrix.java_version }}
-            type=raw,value=${{ steps.versions.outputs.runner_version }}-jdk${{ matrix.java_version }}
+            type=raw,value=${{ steps.versions.outputs.runner_version }}-jdk${{ matrix.java_version }}-sdk${{ steps.versions.outputs.compile_sdk }}
             type=raw,value=latest,enable=${{ matrix.is_default_jdk }}
 
       - name: Build and push

@@ -1,5 +1,8 @@
 ARG VERSION=2.332.0-ubuntu-noble
 ARG JAVA_VERSION=21
+ARG COMPILE_SDK=36
+ARG BUILD_TOOLS=36.0.0
+ARG NDK_VERSION=28.0.13004108
 ARG SDK_TOOLS=8512546_latest
 ARG ANDROID_ROOT=/usr/local/lib/android
 
@@ -30,6 +33,9 @@ RUN apt-get -qq update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no
 # - install android sdk
 ################################################################################
 FROM java AS android
+ARG COMPILE_SDK
+ARG BUILD_TOOLS
+ARG NDK_VERSION
 ARG SDK_TOOLS
 ARG ANDROID_ROOT
 
@@ -40,36 +46,16 @@ RUN mkdir -p ${ANDROID_ROOT}/sdk/cmdline-tools/latest
 RUN wget -O android-sdk.zip https://dl.google.com/android/repository/commandlinetools-linux-$SDK_TOOLS.zip && unzip android-sdk.zip && cp -r ./cmdline-tools/* ${ANDROID_ROOT}/sdk/cmdline-tools/latest
 RUN ${ANDROID_ROOT}/sdk/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null
 
-# You can check Android Studio -> Appearance & Behavior -> System Settings -> Android SDK -> SDK Tools
-# for the various possibilites here. This is also a good list:
-# https://gist.github.com/alvr/8db356880447d2c4bbe948ea92d22c23
-# We can reduce the image size by supporting fewer versions here if we want.
+# Install latest Android SDK components only. Older versions are not needed since
+# build-tools and NDK are backward compatible, and you only need the platform
+# matching your project's compileSdk. Projects needing older platforms can install
+# them at build time via sdkmanager.
 RUN echo "y" | ${ANDROID_ROOT}/sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_ROOT/sdk/ \
   "platform-tools" \
-  "platforms;android-36" \
-  "platforms;android-35" \
-  "platforms;android-32" \
-  "platforms;android-31" \
-  "platforms;android-30" \
-  "platforms;android-29" \
-  "platforms;android-28" \
-  "platforms;android-21" \
-  "build-tools;36.0.0" \
-  "build-tools;35.0.0" \
-  "build-tools;34.0.0" \
-  "build-tools;33.0.0" \
-  "build-tools;32.0.0" \
-  "build-tools;31.0.0" \
-  # anything older than 31.0.0 will result in a platform-tools-2 folder and causes android to give some warnings
-  "ndk-bundle" \
-  "ndk;25.2.9519653" \
-  "ndk;25.1.8937393" \
-  "ndk;28.0.13004108" \
-  "cmake;3.22.1" \
-  "extras;android;m2repository" \
-  "extras;google;m2repository" \
-  "extras;google;google_play_services" \
-  "add-ons;addon-google_apis-google-24"
+  "platforms;android-${COMPILE_SDK}" \
+  "build-tools;${BUILD_TOOLS}" \
+  "ndk;${NDK_VERSION}" \
+  "cmake;3.22.1"
 
 WORKDIR /actions-runner
 ENV PATH="${PATH}:/usr/local/lib/android/sdk/platform-tools/"
@@ -83,4 +69,3 @@ LABEL maintainer="ernstjason1@gmail.com"
 # NB: there is no CMD so it will work the same as the base image. See the
 # https://github.com/myoung34/docker-github-actions-runner#environment-variables
 # for how to use the image
-
