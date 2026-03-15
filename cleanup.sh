@@ -2,22 +2,27 @@
 # Post-job cleanup script for GitHub Actions runner.
 # Invoked automatically via ACTIONS_RUNNER_HOOK_JOB_COMPLETED after each job.
 # Removes rebuildable caches that grow unbounded between jobs.
+#
+# Intentionally not using set -e: individual cleanup failures should not
+# prevent other cleanups from running.
 
-echo "Running post-job cleanup..."
+echo "[cleanup] Running post-job cleanup..."
+BEFORE=$(df -h / | awk 'NR==2 {print $4}')
 
 # Temp files from builds
-rm -rf /tmp/*
+find /tmp -mindepth 1 -delete 2>/dev/null || true
 
 # Gradle build caches (rebuilt each job from source)
-rm -rf /root/.gradle/caches/build-cache-*
-rm -rf /root/.gradle/caches/transforms-*
-rm -rf /root/.gradle/caches/journal-*
+rm -rf /root/.gradle/caches/build-cache-* 2>/dev/null || true
+rm -rf /root/.gradle/caches/transforms-* 2>/dev/null || true
+rm -rf /root/.gradle/caches/journal-* 2>/dev/null || true
 
 # Gradle daemon logs and state
-rm -rf /root/.gradle/daemon/
+rm -rf /root/.gradle/daemon/ 2>/dev/null || true
 
 # Runner diagnostic logs
-rm -f /actions-runner/_diag/*.log
-rm -f /runner-data/_diag/*.log
+find /actions-runner/_diag -name '*.log' -delete 2>/dev/null || true
+find /runner-data/_diag -name '*.log' -delete 2>/dev/null || true
 
-echo "Post-job cleanup complete."
+AFTER=$(df -h / | awk 'NR==2 {print $4}')
+echo "[cleanup] Post-job cleanup complete. Disk free: ${BEFORE} -> ${AFTER}"
