@@ -5,11 +5,52 @@ on:
       - main
 
 jobs:
-  deploy:
-    name: Deploy container
+  matrix:
+    name: Generate build matrix
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.generate.outputs.matrix }}
     steps:
       - uses: actions/checkout@v6
+
+      - name: Generate matrix from matrix.json
+        id: generate
+        run: |
+          DEFAULT_JDK=$(jq -r '.default_jdk' matrix.json)
+          MATRIX=$(jq -c --arg default "$DEFAULT_JDK" '{
+            "include": [.java_versions[] | {
+              "java_version": .,
+              "is_default_jdk": (. == $default)
+            }]
+          }' matrix.json)
+          echo "matrix=${MATRIX}" >> $GITHUB_OUTPUT
+
+  deploy:
+    name: Build JDK ${{ matrix.java_version }}
+    needs: matrix
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.matrix.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Extract versions from Dockerfile
+        id: versions
+        run: |
+          set -euo pipefail
+          RUNNER_TAG=$(grep -m1 '^ARG VERSION=' Dockerfile | cut -d= -f2)
+          RUNNER_VERSION=$(echo "$RUNNER_TAG" | cut -d- -f1)
+          COMPILE_SDK=$(grep -m1 '^ARG COMPILE_SDK=' Dockerfile | cut -d= -f2)
+
+          if [ -z "$RUNNER_TAG" ] || [ -z "$RUNNER_VERSION" ] || [ -z "$COMPILE_SDK" ]; then
+            echo "::error::Failed to extract versions from Dockerfile"
+            exit 1
+          fi
+
+          echo "runner_tag=${RUNNER_TAG}" >> $GITHUB_OUTPUT
+          echo "runner_version=${RUNNER_VERSION}" >> $GITHUB_OUTPUT
+          echo "compile_sdk=${COMPILE_SDK}" >> $GITHUB_OUTPUT
 
       - name: Login to Docker Hub
         uses: docker/login-action@v4
@@ -24,18 +65,28 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: build image
-        run: docker build -f Dockerfile -t ${{ secrets.DOCKERHUB_USERNAME }}/github-runner-android:${{ github.sha }} .
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Tag and push to Docker Hub
-        run: |
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/github-runner-android:${{ github.sha }}
-          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/github-runner-android:${{ github.sha }} ${{ secrets.DOCKERHUB_USERNAME }}/github-runner-android:latest
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/github-runner-android:latest
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/github-runner-android
+            ghcr.io/${{ github.repository_owner }}/github-runner-android
+          tags: |
+            type=raw,value=jdk${{ matrix.java_version }}
+            type=raw,value=${{ steps.versions.outputs.runner_version }}-jdk${{ matrix.java_version }}-sdk${{ steps.versions.outputs.compile_sdk }}
+            type=raw,value=latest,enable=${{ matrix.is_default_jdk }}
 
-      - name: Tag and push to GitHub Container Registry
-        run: |
-          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/github-runner-android:${{ github.sha }} ghcr.io/${{ github.repository_owner }}/github-runner-android:${{ github.sha }}
-          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/github-runner-android:${{ github.sha }} ghcr.io/${{ github.repository_owner }}/github-runner-android:latest
-          docker push ghcr.io/${{ github.repository_owner }}/github-runner-android:${{ github.sha }}
-          docker push ghcr.io/${{ github.repository_owner }}/github-runner-android:latest
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          build-args: |
+            VERSION=${{ steps.versions.outputs.runner_tag }}
+            JAVA_VERSION=${{ matrix.java_version }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

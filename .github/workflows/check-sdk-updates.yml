@@ -1,0 +1,196 @@
+name: Check for SDK and JDK updates
+
+on:
+  schedule:
+    - cron: '0 9 * * 1' # Weekly on Monday at 9 AM UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check-updates:
+    name: Check for updates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Check for new JDK versions
+        id: jdk
+        run: |
+          # Get available Temurin releases >= 17
+          RESPONSE=$(curl -sf https://api.adoptium.net/v3/info/available_releases || echo "")
+          if [ -z "$RESPONSE" ]; then
+            echo "Failed to fetch Adoptium releases API"
+            echo "has_new=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          AVAILABLE=$(echo "$RESPONSE" | jq -r '[.available_releases[] | select(. >= 17)] | sort | .[]')
+
+          # Get current versions and find the highest
+          CURRENT=$(jq -r '.java_versions[]' matrix.json)
+          MAX_CURRENT=$(jq -r '.java_versions | map(tonumber) | max' matrix.json)
+
+          # Only add versions newer than our current highest
+          NEW_VERSIONS=""
+          for v in $AVAILABLE; do
+            if [ "$v" -gt "$MAX_CURRENT" ] && ! echo "$CURRENT" | grep -q "^${v}$"; then
+              NEW_VERSIONS="${NEW_VERSIONS:+${NEW_VERSIONS} }${v}"
+            fi
+          done
+
+          echo "new_versions=${NEW_VERSIONS}" >> $GITHUB_OUTPUT
+          if [ -n "$NEW_VERSIONS" ]; then
+            echo "has_new=true" >> $GITHUB_OUTPUT
+            echo "Found new JDK versions: $NEW_VERSIONS"
+          else
+            echo "has_new=false" >> $GITHUB_OUTPUT
+            echo "No new JDK versions found"
+          fi
+
+      - name: Check for Android SDK updates
+        id: sdk
+        run: |
+          # Use SDK_TOOLS version from Dockerfile to download cmdline-tools
+          SDK_TOOLS=$(grep '^ARG SDK_TOOLS=' Dockerfile | cut -d= -f2)
+          if ! wget -q "https://dl.google.com/android/repository/commandlinetools-linux-${SDK_TOOLS}.zip" -O /tmp/cmdline-tools.zip; then
+            echo "Failed to download cmdline-tools"
+            echo "updated=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          unzip -q /tmp/cmdline-tools.zip -d /tmp/android-cmdline
+          SDK_ROOT=/tmp/android-sdk
+          mkdir -p "$SDK_ROOT"
+
+          # List available packages
+          PACKAGES=$(/tmp/android-cmdline/cmdline-tools/bin/sdkmanager --list --sdk_root="$SDK_ROOT" 2>/dev/null || echo "")
+          if [ -z "$PACKAGES" ]; then
+            echo "Failed to list SDK packages"
+            echo "updated=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Get latest available versions
+          LATEST_PLATFORM=$(echo "$PACKAGES" | grep 'platforms;android-' | grep -oP 'android-\K\d+' | sort -n | tail -1)
+          LATEST_BUILD_TOOLS=$(echo "$PACKAGES" | grep 'build-tools;' | grep -oP 'build-tools;\K[0-9.]+' | sort -V | tail -1)
+          LATEST_NDK=$(echo "$PACKAGES" | grep -P '^\s+ndk;' | grep -oP 'ndk;\K[0-9.]+' | sort -V | tail -1)
+
+          # Get current versions from Dockerfile
+          CURRENT_PLATFORM=$(grep '^ARG COMPILE_SDK=' Dockerfile | cut -d= -f2)
+          CURRENT_BUILD_TOOLS=$(grep '^ARG BUILD_TOOLS=' Dockerfile | cut -d= -f2)
+          CURRENT_NDK=$(grep '^ARG NDK_VERSION=' Dockerfile | cut -d= -f2)
+
+          echo "latest_platform=${LATEST_PLATFORM}" >> $GITHUB_OUTPUT
+          echo "latest_build_tools=${LATEST_BUILD_TOOLS}" >> $GITHUB_OUTPUT
+          echo "latest_ndk=${LATEST_NDK}" >> $GITHUB_OUTPUT
+          echo "current_platform=${CURRENT_PLATFORM}" >> $GITHUB_OUTPUT
+          echo "current_build_tools=${CURRENT_BUILD_TOOLS}" >> $GITHUB_OUTPUT
+          echo "current_ndk=${CURRENT_NDK}" >> $GITHUB_OUTPUT
+
+          # Check if updates are needed
+          UPDATED=false
+          if [ -n "$LATEST_PLATFORM" ] && [ "$LATEST_PLATFORM" != "$CURRENT_PLATFORM" ] && [ "$LATEST_PLATFORM" -gt "$CURRENT_PLATFORM" ] 2>/dev/null; then
+            UPDATED=true
+          fi
+          if [ -n "$LATEST_BUILD_TOOLS" ] && [ "$LATEST_BUILD_TOOLS" != "$CURRENT_BUILD_TOOLS" ]; then
+            UPDATED=true
+          fi
+          if [ -n "$LATEST_NDK" ] && [ "$LATEST_NDK" != "$CURRENT_NDK" ]; then
+            UPDATED=true
+          fi
+
+          echo "updated=${UPDATED}" >> $GITHUB_OUTPUT
+          echo "SDK check results:"
+          echo "  Platform: ${CURRENT_PLATFORM} -> ${LATEST_PLATFORM}"
+          echo "  Build tools: ${CURRENT_BUILD_TOOLS} -> ${LATEST_BUILD_TOOLS}"
+          echo "  NDK: ${CURRENT_NDK} -> ${LATEST_NDK}"
+
+      - name: Apply JDK updates
+        if: steps.jdk.outputs.has_new == 'true'
+        run: |
+          for v in ${{ steps.jdk.outputs.new_versions }}; do
+            jq --arg v "$v" '.java_versions += [$v] | .java_versions = (.java_versions | sort_by(tonumber))' matrix.json > tmp.json && mv tmp.json matrix.json
+          done
+
+          # Update default to highest version
+          jq '.default_jdk = (.java_versions | sort_by(tonumber) | last)' matrix.json > tmp.json && mv tmp.json matrix.json
+
+          echo "Updated matrix.json:"
+          cat matrix.json
+
+      - name: Apply SDK updates
+        if: steps.sdk.outputs.updated == 'true'
+        run: |
+          LATEST_PLATFORM="${{ steps.sdk.outputs.latest_platform }}"
+          LATEST_BUILD_TOOLS="${{ steps.sdk.outputs.latest_build_tools }}"
+          LATEST_NDK="${{ steps.sdk.outputs.latest_ndk }}"
+
+          [ -n "$LATEST_PLATFORM" ] && sed -i "s/^ARG COMPILE_SDK=.*/ARG COMPILE_SDK=${LATEST_PLATFORM}/" Dockerfile
+          [ -n "$LATEST_BUILD_TOOLS" ] && sed -i "s/^ARG BUILD_TOOLS=.*/ARG BUILD_TOOLS=${LATEST_BUILD_TOOLS}/" Dockerfile
+          [ -n "$LATEST_NDK" ] && sed -i "s/^ARG NDK_VERSION=.*/ARG NDK_VERSION=${LATEST_NDK}/" Dockerfile
+
+      - name: Create pull request
+        if: steps.jdk.outputs.has_new == 'true' || steps.sdk.outputs.updated == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="automated/sdk-jdk-updates"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "$BRANCH"
+          git add matrix.json Dockerfile
+
+          # Build commit message
+          MSG="Update"
+          if [ "${{ steps.jdk.outputs.has_new }}" = "true" ]; then
+            MSG="$MSG JDK (${{ steps.jdk.outputs.new_versions }})"
+          fi
+          if [ "${{ steps.sdk.outputs.updated }}" = "true" ]; then
+            MSG="$MSG SDK"
+          fi
+          MSG="$MSG versions"
+          git commit -m "$MSG"
+          git push -f origin "$BRANCH"
+
+          # Build PR body
+          {
+            echo "## Automated SDK/JDK version updates"
+            echo ""
+            if [ "${{ steps.jdk.outputs.has_new }}" = "true" ]; then
+              echo "### New JDK versions added to build matrix"
+              for v in ${{ steps.jdk.outputs.new_versions }}; do
+                echo "- JDK $v"
+              done
+              echo ""
+            fi
+            if [ "${{ steps.sdk.outputs.updated }}" = "true" ]; then
+              echo "### Android SDK updates"
+              if [ "${{ steps.sdk.outputs.latest_platform }}" != "${{ steps.sdk.outputs.current_platform }}" ]; then
+                echo "- Platform: android-${{ steps.sdk.outputs.current_platform }} -> android-${{ steps.sdk.outputs.latest_platform }}"
+              fi
+              if [ "${{ steps.sdk.outputs.latest_build_tools }}" != "${{ steps.sdk.outputs.current_build_tools }}" ]; then
+                echo "- Build tools: ${{ steps.sdk.outputs.current_build_tools }} -> ${{ steps.sdk.outputs.latest_build_tools }}"
+              fi
+              if [ "${{ steps.sdk.outputs.latest_ndk }}" != "${{ steps.sdk.outputs.current_ndk }}" ]; then
+                echo "- NDK: ${{ steps.sdk.outputs.current_ndk }} -> ${{ steps.sdk.outputs.latest_ndk }}"
+              fi
+              echo ""
+            fi
+            echo "This PR was generated automatically by the weekly SDK/JDK update check."
+          } > /tmp/pr-body.txt
+
+          # Create PR if one doesn't already exist for this branch
+          EXISTING=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number' 2>/dev/null || true)
+          if [ -z "$EXISTING" ]; then
+            gh pr create \
+              --title "Update SDK/JDK versions" \
+              --body-file /tmp/pr-body.txt \
+              --head "$BRANCH"
+          else
+            echo "PR #${EXISTING} already exists, updated with force push"
+          fi

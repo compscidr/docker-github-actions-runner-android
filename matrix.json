@@ -1,0 +1,4 @@
+{
+  "java_versions": ["17", "21"],
+  "default_jdk": "21"
+}
