@@ -58,8 +58,8 @@ install them at build time:
 
 ### Currently available JDK versions
 
-The build matrix is defined in [`matrix.json`](matrix.json). Currently built
-JDK versions: **17**, **21** (default).
+The build matrix is defined in [`matrix.json`](matrix.json). Check that file
+for the current list of JDK versions and which one is the default.
 
 ## Automated updates
 
@@ -80,16 +80,10 @@ Versions are kept up to date automatically:
 docker build -f Dockerfile .
 ```
 
-Build args can be used to customize the image:
-
-```
-ARG VERSION=2.332.0-ubuntu-noble   # base runner version
-ARG JAVA_VERSION=21                # Temurin JDK major version
-ARG COMPILE_SDK=36                 # Android platform level
-ARG BUILD_TOOLS=36.0.0             # Android build-tools version
-ARG NDK_VERSION=28.0.13004108      # Android NDK version
-ARG SDK_TOOLS=8512546_latest       # SDK command-line tools version
-```
+Build args can be used to customize the image. See the top of the
+[`Dockerfile`](Dockerfile) for the current defaults and available args
+(`VERSION`, `JAVA_VERSION`, `COMPILE_SDK`, `BUILD_TOOLS`, `NDK_VERSION`,
+`SDK_TOOLS`).
 
 Example:
 ```
