@@ -38,9 +38,16 @@ jobs:
       - name: Extract versions from Dockerfile
         id: versions
         run: |
-          RUNNER_TAG=$(grep '^ARG VERSION=' Dockerfile | cut -d= -f2)
+          set -euo pipefail
+          RUNNER_TAG=$(grep -m1 '^ARG VERSION=' Dockerfile | cut -d= -f2)
           RUNNER_VERSION=$(echo "$RUNNER_TAG" | cut -d- -f1)
-          COMPILE_SDK=$(grep '^ARG COMPILE_SDK=' Dockerfile | cut -d= -f2)
+          COMPILE_SDK=$(grep -m1 '^ARG COMPILE_SDK=' Dockerfile | cut -d= -f2)
+
+          if [ -z "$RUNNER_TAG" ] || [ -z "$RUNNER_VERSION" ] || [ -z "$COMPILE_SDK" ]; then
+            echo "::error::Failed to extract versions from Dockerfile"
+            exit 1
+          fi
+
           echo "runner_tag=${RUNNER_TAG}" >> $GITHUB_OUTPUT
           echo "runner_version=${RUNNER_VERSION}" >> $GITHUB_OUTPUT
           echo "compile_sdk=${COMPILE_SDK}" >> $GITHUB_OUTPUT
