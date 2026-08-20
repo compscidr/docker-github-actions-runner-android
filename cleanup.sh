@@ -12,13 +12,14 @@ BEFORE=$(df -h / | awk 'NR==2 {print $4}')
 # Temp files from builds
 find /tmp -mindepth 1 -delete 2>/dev/null || true
 
-# Gradle build caches (rebuilt each job from source)
-rm -rf /root/.gradle/caches/build-cache-* 2>/dev/null || true
-rm -rf /root/.gradle/caches/transforms-* 2>/dev/null || true
-rm -rf /root/.gradle/caches/journal-* 2>/dev/null || true
+# Gradle build caches (rebuilt each job from source). $HOME covers both the
+# root (default) and RUN_AS_ROOT=false (/home/runner) runner users.
+rm -rf "$HOME"/.gradle/caches/build-cache-* 2>/dev/null || true
+rm -rf "$HOME"/.gradle/caches/transforms-* 2>/dev/null || true
+rm -rf "$HOME"/.gradle/caches/journal-* 2>/dev/null || true
 
 # Gradle daemon logs and state
-rm -rf /root/.gradle/daemon/ 2>/dev/null || true
+rm -rf "$HOME"/.gradle/daemon/ 2>/dev/null || true
 
 # Runner diagnostic logs
 find /actions-runner/_diag -name '*.log' -delete 2>/dev/null || true
