@@ -50,12 +50,24 @@ RUN ${ANDROID_ROOT}/sdk/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/nul
 # build-tools and NDK are backward compatible, and you only need the platform
 # matching your project's compileSdk. Projects needing older platforms can install
 # them at build time via sdkmanager.
-RUN echo "y" | ${ANDROID_ROOT}/sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_ROOT/sdk/ \
-  "platform-tools" \
-  "platforms;android-${COMPILE_SDK}" \
-  "build-tools;${BUILD_TOOLS}" \
-  "ndk;${NDK_VERSION}" \
-  "cmake;3.22.1"
+#
+# sdkmanager has no download retry: a truncated download from dl.google.com
+# surfaces as "Archive is not a ZIP archive" and fails the whole build. It is
+# idempotent (already-installed packages are skipped), so retry the whole
+# command a few times, clearing its download scratch dir between attempts.
+RUN attempt=1; \
+  until echo "y" | ${ANDROID_ROOT}/sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_ROOT/sdk/ \
+    "platform-tools" \
+    "platforms;android-${COMPILE_SDK}" \
+    "build-tools;${BUILD_TOOLS}" \
+    "ndk;${NDK_VERSION}" \
+    "cmake;3.22.1"; do \
+    if [ "$attempt" -ge 3 ]; then echo "sdkmanager failed after $attempt attempts" >&2; exit 1; fi; \
+    echo "sdkmanager attempt $attempt failed, retrying in 15s..." >&2; \
+    rm -rf ${ANDROID_ROOT}/sdk/.temp; \
+    attempt=$((attempt + 1)); \
+    sleep 15; \
+  done
 
 WORKDIR /actions-runner
 ENV PATH="${PATH}:/usr/local/lib/android/sdk/platform-tools/"
