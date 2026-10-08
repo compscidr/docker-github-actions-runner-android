@@ -42,8 +42,9 @@ jobs:
           RUNNER_TAG=$(grep -m1 '^ARG VERSION=' Dockerfile | cut -d= -f2)
           RUNNER_VERSION=$(echo "$RUNNER_TAG" | cut -d- -f1)
           COMPILE_SDK=$(grep -m1 '^ARG COMPILE_SDK=' Dockerfile | cut -d= -f2)
+          NDK_VERSION=$(grep -m1 '^ARG NDK_VERSION=' Dockerfile | cut -d= -f2)
 
-          if [ -z "$RUNNER_TAG" ] || [ -z "$RUNNER_VERSION" ] || [ -z "$COMPILE_SDK" ]; then
+          if [ -z "$RUNNER_TAG" ] || [ -z "$RUNNER_VERSION" ] || [ -z "$COMPILE_SDK" ] || [ -z "$NDK_VERSION" ]; then
             echo "::error::Failed to extract versions from Dockerfile"
             exit 1
           fi
@@ -51,6 +52,7 @@ jobs:
           echo "runner_tag=${RUNNER_TAG}" >> $GITHUB_OUTPUT
           echo "runner_version=${RUNNER_VERSION}" >> $GITHUB_OUTPUT
           echo "compile_sdk=${COMPILE_SDK}" >> $GITHUB_OUTPUT
+          echo "ndk_version=${NDK_VERSION}" >> $GITHUB_OUTPUT
 
       - name: Login to Docker Hub
         uses: docker/login-action@v4
@@ -78,6 +80,9 @@ jobs:
           tags: |
             type=raw,value=jdk${{ matrix.java_version }}
             type=raw,value=${{ steps.versions.outputs.runner_version }}-jdk${{ matrix.java_version }}-sdk${{ steps.versions.outputs.compile_sdk }}
+            # Same image, with the NDK it ships in the tag: consumers that pin an NDK (Android
+            # Gradle ndkVersion) can let Renovate derive it from this tag so image and NDK move together.
+            type=raw,value=${{ steps.versions.outputs.runner_version }}-jdk${{ matrix.java_version }}-sdk${{ steps.versions.outputs.compile_sdk }}-ndk${{ steps.versions.outputs.ndk_version }}
             type=raw,value=latest,enable=${{ matrix.is_default_jdk }}
 
       - name: Build and push
