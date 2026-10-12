@@ -29,6 +29,12 @@ version, and Android SDK level. Tags let you choose how tightly to pin:
 | `latest` | `latest` | Nothing | Runner, JDK, and SDK all track latest |
 | `jdk<VERSION>` | `jdk21` | JDK major version | Runner and SDK track latest |
 | `<RUNNER>-jdk<JDK>-sdk<SDK>` | `2.332.0-jdk21-sdk36` | Everything | Nothing — fully pinned |
+| `<RUNNER>-jdk<JDK>-sdk<SDK>-ndk<NDK>` | `2.338.0-jdk21-sdk36.1-ndk30.0.16248370` | Same image, NDK spelled out | Nothing — fully pinned |
+| `<RUNNER>-jdk<JDK>-sdk<SDK>-bt<BUILD_TOOLS>-ndk<NDK>` | `2.338.0-jdk21-sdk36.1-bt37.0.0-ndk30.0.16248370` | Same image, build-tools and NDK spelled out | Nothing — fully pinned |
+
+The longer tags exist so a consumer can let Renovate derive its Gradle
+`compileSdk`, `buildToolsVersion` and `ndkVersion` from the image pin: when they
+match what the image ships, AGP doesn't download SDK components on every job.
 
 ### Which tag should I use?
 

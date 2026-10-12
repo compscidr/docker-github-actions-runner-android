@@ -75,8 +75,9 @@ jobs:
           # are listed too), which then break the unattended Docker build when
           # sdkmanager demands the separate Android SDK Preview license. The manifest
           # carries reliable preview markers, so we parse it with a real XML parser
-          # and skip any package that is obsolete, carries a <codename> element, or
-          # uses the android-sdk-preview-license.
+          # and skip any package that is obsolete, carries a non-empty <codename>, or
+          # uses the android-sdk-preview-license. Stable platforms since android-37.0
+          # carry an EMPTY <codename></codename>, so only a non-empty one marks a preview.
           if ! wget -q "https://dl.google.com/android/repository/repository2-3.xml" -O /tmp/android-repo.xml; then
             echo "Failed to download SDK repository manifest"
             echo "updated=false" >> $GITHUB_OUTPUT
@@ -94,7 +95,7 @@ jobs:
               if pkg.get('obsolete') == 'true':
                   return True
               for e in pkg.iter():
-                  if local(e.tag) == 'codename':
+                  if local(e.tag) == 'codename' and (e.text or '').strip():
                       return True
                   if local(e.tag) == 'uses-license' and e.get('ref') == 'android-sdk-preview-license':
                       return True
