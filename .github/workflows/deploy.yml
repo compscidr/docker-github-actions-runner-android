@@ -3,6 +3,13 @@ on:
   push:
     branches:
       - main
+  # Temurin security releases (e.g. Java4Shell, CVE-2026-114938) keep the same
+  # jdkNN tag, so nothing in this repo changes when one lands. Rebuild weekly so
+  # they flow in, and allow a manual rebuild for urgent ones. No layer cache, so
+  # every build installs the newest temurin-NN-jdk.
+  schedule:
+    - cron: '0 10 * * 1' # Mondays, after check-sdk-updates (09:00)
+  workflow_dispatch:
 
 jobs:
   matrix:
